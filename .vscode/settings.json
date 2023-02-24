@@ -1,0 +1,17 @@
+{
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default"
+            },
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 3306,
+            "driver": "MariaDB",
+            "name": "authentication_waste_tracker",
+            "database": "authentication_waste_tracker",
+            "username": "octopus",
+            "askForPassword": true
+        }
+    ]
+}
