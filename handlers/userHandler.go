@@ -16,7 +16,6 @@ type UserDTO struct {
 // GET /users
 func GetUsers(c *fiber.Ctx) error {
 	db := database.OpenDB()
-	database.CloseDB(db)
 
 	rows, err := db.Query("SELECT * FROM users")
 	if err != nil {
@@ -38,7 +37,7 @@ func GetUsers(c *fiber.Ctx) error {
 	if err = rows.Err(); err != nil {
 		return err
 	}
-
+	database.CloseDB(db)
 	c.Set("Content-Type", "application/json")
 
 	return c.JSON(users)
