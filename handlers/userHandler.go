@@ -43,92 +43,113 @@ func GetUsers(c *fiber.Ctx) error {
 	return c.JSON(users)
 }
 
-// func GetAllUsers() ([]UserDTO, error) {
-// 	db := database.OpenDB()
-// 	defer database.CloseDB(db)
+// GET /users/:id
+func GetUser(c *fiber.Ctx) error {
+	db := database.OpenDB()
 
-// 	rows, err := db.Query("SELECT * FROM users")
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	database.CloseDB(db)
+	id := c.Params("id")
 
-// 	var users []UserDTO // create a slice to store the users
+	user := UserDTO{}
 
-// 	for rows.Next() {
-// 		var user UserDTO
-// 		err := rows.Scan(&user.ID, &user.Email, &user.Username, &user.Password)
-// 		if err != nil {
-// 			panic(err.Error())
-// 		}
-// 		//fmt.Println("id: " + string(user.ID) + "email: " + user.Email + ", username: " + user.Username + ", password: " + user.Password)
-// 		users = append(users, user) // append each user to the slice
-// 	}
-// 	return users, nil // return the slice of users
-// }
+	err := db.QueryRow("SELECT * FROM users WHERE id = ?", id).Scan(&user.ID, &user.Email, &user.Username, &user.Password)
+	if err != nil {
+		return c.Status(500).SendString(err.Error())
+	}
+	database.CloseDB(db)
+	c.Set("Content-Type", "application/json")
 
-// func GetUserByID() (UserDTO, error) {
-// 	// db := database.OpenDB()
-// 	// defer database.CloseDB(db)
+	return c.JSON(user)
+}
 
-// 	// var user UserDTO
+// POST /users
+// it accepts a JSON body then creates a new user if the previous id is 2 then the new id will be 3 and so on
+// if the email or username already exists then it returns an error message and status code 500
+func CreateUser(c *fiber.Ctx) error {
+	db := database.OpenDB()
 
-// 	// // ask the user for an id
-// 	// fmt.Println("Enter the id of the user you want to get: ")
-// 	// fmt.Scanln(&id)
+	user := UserDTO{}
 
-// 	// err := db.QueryRow("SELECT * FROM users WHERE id = ?", id).Scan(&user.ID, &user.Email, &user.Username, &user.Password)
-// 	// if err != nil {
-// 	// 	panic(err.Error() + "\nUser not found")
-// 	// }
-// 	// return user, nil
-// 	db := database.OpenDB()
-// 	defer database.CloseDB(db)
+	err := c.BodyParser(&user)
+	if err != nil {
+		return c.Status(500).SendString(err.Error())
+	}
 
-// 	var user UserDTO
+	// check if the email or username already exists
+	var email, username string
+	err = db.QueryRow("SELECT email, username FROM users WHERE email = ? OR username = ?", user.Email, user.Username).Scan(&email, &username)
+	if err == nil {
+		return c.Status(500).SendString("Email or Username already exists")
+	}
 
-// 	err := db.QueryRow("SELECT * FROM users WHERE id = ?", user.ID).Scan(&user.ID, &user.Email, &user.Username, &user.Password)
-// 	if err != nil {
-// 		return user, err
-// 	}
-// 	return user, nil
-// }
+	// get the last id
+	var lastID int
+	err = db.QueryRow("SELECT MAX(id) FROM users").Scan(&lastID)
+	if err != nil {
+		return c.Status(500).SendString(err.Error())
+	}
 
-// // insert a user into the database
-// func InsertUser(user UserDTO) error {
-// 	db := database.OpenDB()
-// 	defer database.CloseDB(db)
+	// insert the new user
+	_, err = db.Exec("INSERT INTO users VALUES(?, ?, ?, ?)", lastID+1, user.Email, user.Username, user.Password)
+	if err != nil {
+		return c.Status(500).SendString(err.Error())
+	}
 
-// 	insert, err := db.Query("INSERT INTO users VALUES (?, ?, ?, ?)", user.ID, user.Email, user.Username, user.Password)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	defer insert.Close()
-// 	return nil
-// }
+	database.CloseDB(db)
 
-// // update a user in the database
-// func UpdateUser(user UserDTO) error {
-// 	db := database.OpenDB()
-// 	defer database.CloseDB(db)
+	return c.SendString("User created successfully")
+}
 
-// 	update, err := db.Query("UPDATE users SET email = ?, username = ?, password = ? WHERE id = ?", user.Email, user.Username, user.Password, user.ID)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	defer update.Close()
-// 	return nil
-// }
+// PUT /users/:id
+func UpdateUser(c *fiber.Ctx) error {
+	db := database.OpenDB()
 
-// // delete a user from the database
-// func DeleteUser(id int) error {
-// 	db := database.OpenDB()
-// 	defer database.CloseDB(db)
+	id := c.Params("id")
 
-// 	delete, err := db.Query("DELETE FROM users WHERE id = ?", id)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	defer delete.Close()
-// 	return nil
-// }
+	user := UserDTO{}
+
+	err := c.BodyParser(&user)
+	if err != nil {
+		return c.Status(500).SendString(err.Error())
+	}
+
+	// update the user
+	_, err = db.Exec("UPDATE users SET email = ?, username = ?, password = ? WHERE id = ?", user.Email, user.Username, user.Password, id)
+	if err != nil {
+		return c.Status(500).SendString(err.Error())
+	}
+
+	database.CloseDB(db)
+
+	return c.SendString("User updated successfully")
+}
+
+// DELETE /users/:id
+// when the user is deleted the id of the next user will be the same as the deleted user that means if the id of the deleted user is 2 and the next is 3 the next user will be 2
+func DeleteUser(c *fiber.Ctx) error {
+	db := database.OpenDB()
+
+	id := c.Params("id")
+
+	// get the ID of the user to be deleted
+	var deletedID int
+	err := db.QueryRow("SELECT id FROM users WHERE id = ?", id).Scan(&deletedID)
+	if err != nil {
+		return c.Status(500).SendString(err.Error())
+	}
+
+	// delete the user
+	_, err = db.Exec("DELETE FROM users WHERE id = ?", id)
+	if err != nil {
+		return c.Status(500).SendString(err.Error())
+	}
+
+	// update the IDs of the remaining users
+	_, err = db.Exec("UPDATE users SET id = id - 1 WHERE id > ?", deletedID)
+	if err != nil {
+		return c.Status(500).SendString(err.Error())
+	}
+
+	database.CloseDB(db)
+
+	return c.SendString("User deleted successfully")
+}
