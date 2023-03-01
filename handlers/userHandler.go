@@ -44,6 +44,7 @@ func GetUsers(c *fiber.Ctx) error {
 }
 
 // GET /users/:id
+// if the user doesn't exist then it returns an error message and status code 500
 func GetUser(c *fiber.Ctx) error {
 	db := database.OpenDB()
 
@@ -53,8 +54,9 @@ func GetUser(c *fiber.Ctx) error {
 
 	err := db.QueryRow("SELECT * FROM users WHERE id = ?", id).Scan(&user.ID, &user.Email, &user.Username, &user.Password)
 	if err != nil {
-		return c.Status(500).SendString(err.Error())
+		return c.Status(500).SendString("User doesn't exist")
 	}
+
 	database.CloseDB(db)
 	c.Set("Content-Type", "application/json")
 
@@ -112,6 +114,13 @@ func UpdateUser(c *fiber.Ctx) error {
 		return c.Status(500).SendString(err.Error())
 	}
 
+	// check if the user exists
+	var userID int
+	err = db.QueryRow("SELECT id FROM users WHERE id = ?", id).Scan(&userID)
+	if err != nil {
+		return c.Status(500).SendString("User doesn't exist")
+	}
+
 	// update the user
 	_, err = db.Exec("UPDATE users SET email = ?, username = ?, password = ? WHERE id = ?", user.Email, user.Username, user.Password, id)
 	if err != nil {
@@ -134,7 +143,7 @@ func DeleteUser(c *fiber.Ctx) error {
 	var deletedID int
 	err := db.QueryRow("SELECT id FROM users WHERE id = ?", id).Scan(&deletedID)
 	if err != nil {
-		return c.Status(500).SendString(err.Error())
+		return c.Status(500).SendString("User doesn't exist")
 	}
 
 	// delete the user
