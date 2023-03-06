@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -36,6 +37,8 @@ func loadENV() error {
 
 func generateApp() *fiber.App {
 	app := fiber.New()
+
+	app.Use(cors.New())
 
 	// create healthcheck route
 	app.Get("/health", func(c *fiber.Ctx) error {
