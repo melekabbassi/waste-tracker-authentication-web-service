@@ -21,7 +21,7 @@ func main() {
 	db := database.OpenDB()
 	defer database.CloseDB(db)
 
-	app.Listen(":8081")
+	app.Listen(":8083")
 }
 
 func loadENV() error {
